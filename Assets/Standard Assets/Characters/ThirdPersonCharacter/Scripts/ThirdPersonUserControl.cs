@@ -8,17 +8,13 @@ namespace UnityStandardAssets.Characters.ThirdPerson
     [RequireComponent(typeof (ThirdPersonCharacter))]
     public class ThirdPersonUserControl : NetworkBehaviour
     {
-        //[SyncVar] 
         private ThirdPersonCharacter m_Character; // A reference to the ThirdPersonCharacter on the object
         
         private Transform m_Cam;                  // A reference to the main camera in the scenes transform
         private Vector3 m_CamForward;             // The current forward direction of the camera
-
-        [SyncVar] 
+        
         private Vector3 m_Move;
-        [SyncVar] 
         private bool m_Jump;                      // the world-relative desired move direction, calculated from the camForward and user input.
-        [SyncVar]
         private bool m_Crouch;
         
         private void Start()
@@ -49,6 +45,9 @@ namespace UnityStandardAssets.Characters.ThirdPerson
                     m_Jump = CrossPlatformInputManager.GetButtonDown("Jump");
                 }
             }
+
+            // This is executed on the sever, and results in a RPC on the client
+            CmdMove(m_Move, m_Crouch, m_Jump);
         }
 
 
@@ -83,10 +82,27 @@ namespace UnityStandardAssets.Characters.ThirdPerson
                 m_Character.Move(m_Move, m_Crouch, m_Jump);
                 m_Jump = false;
             }
-            else
-            {
-                m_Character.Move(m_Move, m_Crouch, m_Jump);
-            }
         }
+
+
+        [Command]
+        void CmdMove(Vector3 move, bool crouch, bool jump)
+        {
+            RpcMove(move, crouch, jump);
+        }
+
+
+        [ClientRpc]
+        void RpcMove(Vector3 move, bool crouch, bool jump)
+        {
+            if (isLocalPlayer)
+                return;
+
+            m_Move = move;
+            m_Crouch = crouch;
+            m_Jump = jump;
+            m_Character.Move(move, crouch, jump);
+        }
+
     }
 }
